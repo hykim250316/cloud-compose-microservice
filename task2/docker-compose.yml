@@ -1,0 +1,34 @@
+services:
+  web-app:
+    container_name: web-app
+    build: ./web-app
+    env_file: .env
+    ports: 
+      - "80:5000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - frontend
+    depends_on:
+      api:
+        condition: service_healthy
+  api:
+    container_name: api
+    build: ./api
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    networks:
+      - frontend
+networks:
+  frontend:

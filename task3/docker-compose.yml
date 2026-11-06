@@ -1,0 +1,75 @@
+services:
+  web-app:
+    container_name: web-app
+    build: ./web-app
+    env_file: .env
+    ports: 
+      - "80:5000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - frontend
+    depends_on:
+      api:
+        condition: service_healthy
+  api:
+    container_name: api
+    build: ./api
+    env_file: .env
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    networks:
+      - frontend
+      - backend
+    depends_on:
+      database:
+        condition: service_healthy
+  database:
+    container_name: db
+    image: postgres:18-alpine
+    env_file: .env
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./init-scripts/01-init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - backend
+  pgweb:
+    container_name: pgweb
+    image: sosedoff/pgweb:0.17.0
+    env_file: .env
+    ports:
+      - "8081:8081"
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/api/info"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - backend
+networks:
+  frontend:
+  backend:
+volumes:
+  postgres-data:
